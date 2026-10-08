@@ -18,7 +18,7 @@
       return balance;
     }
   };
-}
+
 
 const wallet = createWallet(100);
 console.log(wallet.add(50));    // 150
