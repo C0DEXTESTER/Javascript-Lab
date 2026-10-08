@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Lab Assignments</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .assignment-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .assignment-list li {
+            background: #fff;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .assignment-list a {
+            text-decoration: none;
+            color: #0366d6;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .assignment-list a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>JavaScript Lab Assignments</h1>
+    <p>Welcome to my JavaScript lab portfolio. Below are all the assignments pushed to this repository.</p>
+
+    <ul id="repo-files" class="assignment-list">
+        <li>Loading assignments...</li>
+    </ul>
+
+    <script>
+        // REPLACE THESE VARIABLES WITH YOUR GITHUB DETAILS
+        const username = 'C0DEXTESTER';
+        const repo = 'Javascript-Lab';
+        
+        const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents`;
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then(data => {
+                const list = document.getElementById('repo-files');
+                list.innerHTML = ''; // Clear loading text
+
+                data.forEach(item => {
+                    // Filter out the index.html itself or hidden files
+                    if (item.name !== 'index.html' && !item.name.startsWith('.')) {
+                        const listItem = document.createElement('li');
+                        const link = document.createElement('a');
+                        
+                        // Link to the GitHub Pages URL for the file/folder
+                        link.href = item.name; 
+                        link.textContent = item.name + (item.type === 'dir' ? ' (Folder)' : '');
+                        link.target = '_blank';
+                        
+                        listItem.appendChild(link);
+                        list.appendChild(listItem);
+                    }
+                });
+            })
+            .catch(error => {
+                document.getElementById('repo-files').innerHTML = '<li>Error loading assignments. Check username and repo name in the code.</li>';
+                console.error('Error fetching repo data:', error);
+            });
+    </script>
+</body>
+</html>
