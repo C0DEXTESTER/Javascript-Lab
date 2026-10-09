@@ -12,25 +12,21 @@
             padding: 0;
             height: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1e1e; /* VS Code dark background */
+            background-color: #1e1e1e;
             color: #cccccc;
-            overflow: hidden; /* Prevent full page scrolling */
+            overflow: hidden;
         }
         
-        /* Two-pane layout container */
-        #app-container {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-        }
+        #app-container { display: flex; height: 100vh; width: 100vw; }
 
-        /* Sidebar Styling (File Explorer) */
+        /* Sidebar Styling */
         #sidebar {
-            width: 280px;
-            background-color: #252526; /* VS Code sidebar color */
+            width: 300px;
+            background-color: #252526;
             border-right: 1px solid #333;
             overflow-y: auto;
             padding-top: 10px;
+            flex-shrink: 0;
         }
         
         .sidebar-title {
@@ -41,15 +37,8 @@
             letter-spacing: 1px;
         }
 
-        /* Tree List Styling */
-        ul.tree-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        ul.tree-list ul {
-            padding-left: 20px; /* Indent subfolders */
-        }
+        ul.tree-list { list-style: none; padding: 0; margin: 0; }
+        ul.tree-list ul { padding-left: 20px; }
         
         .tree-item {
             padding: 6px 15px;
@@ -60,98 +49,104 @@
             user-select: none;
             color: #cccccc;
         }
-        .tree-item:hover {
-            background-color: #2a2d2e;
-        }
-        .tree-item.active {
-            background-color: #37373d;
-            color: #ffffff;
-        }
-        .icon {
-            margin-right: 8px;
-            font-size: 1.1em;
-            width: 20px;
-            text-align: center;
-        }
+        .tree-item:hover { background-color: #2a2d2e; }
+        .tree-item.active { background-color: #37373d; color: #ffffff; }
+        .icon { margin-right: 8px; font-size: 1.1em; width: 20px; text-align: center; }
 
-        /* Main Editor Area */
+        /* Editor Area */
         #editor-container {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             background-color: #1e1e1e;
+            overflow: hidden;
         }
 
-        /* Top Bar of the Editor */
         #editor-tabs {
             background-color: #2d2d2d;
             padding: 10px 20px;
             font-size: 0.9em;
             color: #999;
             border-bottom: 1px solid #1e1e1e;
-            min-height: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        /* Code Viewer Area */
+        .action-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: none;
+        }
+        .action-btn:hover { background: #005999; }
+
         #viewer {
             flex-grow: 1;
             padding: 20px;
             overflow-y: auto;
         }
-        pre {
-            margin: 0 !important;
-            border-radius: 5px;
-            background: transparent !important;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 5px;
-        }
+        
+        pre { margin: 0 !important; border-radius: 5px; background: transparent !important; }
+        img { max-width: 100%; height: auto; border-radius: 5px; }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 5px; }
+        
+        /* Markdown formatting inside viewer */
+        .markdown-body { color: #cccccc; line-height: 1.6; }
+        .markdown-body h1, .markdown-body h2 { border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .markdown-body a { color: #4fc1ff; }
+        .markdown-body code { background: #2d2d2d; padding: 2px 5px; border-radius: 3px; }
     </style>
 </head>
 <body>
 
     <div id="app-container">
-        <!-- Sidebar (Left) -->
+        <!-- Sidebar -->
         <div id="sidebar">
             <div class="sidebar-title">Explorer: JS Assignments</div>
             <div id="file-tree">Loading repository...</div>
         </div>
 
-        <!-- Editor (Right) -->
+        <!-- Editor -->
         <div id="editor-container">
-            <div id="editor-tabs">Welcome</div>
+            <div id="editor-tabs">
+                <span id="tab-title">Welcome</span>
+                <button id="preview-btn" class="action-btn" onclick="toggleHtmlPreview()">Preview Live HTML</button>
+            </div>
             <div id="viewer">
-                <p style="color: #666;">Select a file from the sidebar to view your code.</p>
+                <p style="color: #666;">Select a file or your "javascript work" folder from the sidebar to view your code.</p>
             </div>
         </div>
     </div>
 
-    <!-- Syntax Highlighting Scripts -->
+    <!-- Scripts for Syntax Highlighting and Markdown Parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
-        // REPLACE THESE WITH YOUR EXACT GITHUB DETAILS
         const username = 'C0DEXTESTER';
         const repo = 'Javascript-Lab';
+        
+        let currentHtmlUrl = '';
+        let isPreviewing = false;
+        let currentHtmlCode = '';
 
-        // Load the root directory when the page opens
         loadRoot();
 
         async function loadRoot() {
             const treeContainer = document.getElementById('file-tree');
             treeContainer.innerHTML = '';
-            
             const rootUl = document.createElement('ul');
             rootUl.className = 'tree-list';
             treeContainer.appendChild(rootUl);
-
             await fetchAndBuildTree('', rootUl);
         }
 
-        // Fetch directory contents and build the collapsible list
         async function fetchAndBuildTree(path, parentElement) {
             const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
             
@@ -160,14 +155,12 @@
                 if (!response.ok) throw new Error("API Error");
                 const data = await response.json();
 
-                // Sort: Folders first, files second
                 data.sort((a, b) => {
                     if (a.type === b.type) return a.name.localeCompare(b.name);
                     return a.type === 'dir' ? -1 : 1;
                 });
 
                 data.forEach(item => {
-                    // Ignore index.html and hidden files like .git
                     if (item.name === 'index.html' || item.name.startsWith('.')) return;
 
                     const li = document.createElement('li');
@@ -190,17 +183,15 @@
                     parentElement.appendChild(li);
                 });
             } catch (error) {
-                parentElement.innerHTML = '<li style="padding: 10px; color: red;">Error loading repository files. Check username/repo in the code.</li>';
-                console.error(error);
+                parentElement.innerHTML = '<li style="padding: 10px; color: red;">Error loading repository files.</li>';
             }
         }
 
-        // Handle expanding and collapsing folders in the sidebar
         async function toggleFolder(element, path) {
             const nestedList = element.nextElementSibling;
             const iconSpan = element.querySelector('.icon');
 
-            // If the folder was already clicked once, just hide/show it
+            // This acts as your "Go Back" / Collapse feature
             if (nestedList && nestedList.tagName === 'UL') {
                 const isHidden = nestedList.style.display === 'none';
                 nestedList.style.display = isHidden ? 'block' : 'none';
@@ -208,58 +199,87 @@
                 return;
             }
 
-            // If clicking for the first time, change icon to open and fetch contents
             iconSpan.textContent = '📂';
             const ul = document.createElement('ul');
             ul.className = 'tree-list';
             ul.innerHTML = '<li class="tree-item" style="color: #666;">Loading...</li>';
             element.parentNode.insertBefore(ul, element.nextSibling);
 
-            ul.innerHTML = ''; // Clear loading text
+            ul.innerHTML = ''; 
             await fetchAndBuildTree(path, ul);
         }
 
-        // Display the selected file in the right-hand editor pane
         async function viewFile(fileData) {
             const viewer = document.getElementById('viewer');
-            const tabs = document.getElementById('editor-tabs');
+            const tabTitle = document.getElementById('tab-title');
+            const previewBtn = document.getElementById('preview-btn');
             
-            tabs.textContent = fileData.path; // Show file path at the top
+            tabTitle.textContent = fileData.path; 
             viewer.innerHTML = '<p style="color:#999;">Loading file content...</p>';
+            previewBtn.style.display = 'none'; 
+            isPreviewing = false;
 
             const ext = fileData.name.split('.').pop().toLowerCase();
             const downloadUrl = fileData.download_url;
 
-            // Display Images
             if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
                 viewer.innerHTML = `<img src="${downloadUrl}" alt="${fileData.name}">`;
             } 
-            // Handle PDFs
             else if (ext === 'pdf') {
                 viewer.innerHTML = `
-                    <p style="color:#d4d4d4; font-size: 1.1em;">PDF preview is not supported inside the code editor.</p>
-                    <a href="${fileData.html_url}" target="_blank" style="color:#4fc1ff; text-decoration: none; padding: 10px; border: 1px solid #4fc1ff; border-radius: 3px; display: inline-block; margin-top: 10px;">
-                        Open PDF in GitHub
-                    </a>`;
+                    <p style="color:#d4d4d4;">PDF preview is not supported inside the editor.</p>
+                    <a href="${fileData.html_url}" target="_blank" style="color:#4fc1ff; text-decoration: none; padding: 10px; border: 1px solid #4fc1ff; display: inline-block;">Open PDF in GitHub</a>`;
             } 
-            // Display Code (JS, HTML, CSS, JSON, etc.)
             else {
                 try {
                     const response = await fetch(downloadUrl);
                     const text = await response.text();
                     
-                    let lang = ext === 'html' ? 'markup' : ext === 'css' ? 'css' : ext === 'json' ? 'json' : 'javascript';
-                    const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    
-                    viewer.innerHTML = `<pre><code class="language-${lang}">${escapedText}</code></pre>`;
-                    Prism.highlightAll(); // Trigger syntax coloring
+                    // Render Markdown Files (like README.md) visually
+                    if (ext === 'md') {
+                        viewer.innerHTML = `<div class="markdown-body">${marked.parse(text)}</div>`;
+                    } 
+                    else {
+                        // Display Code
+                        let lang = ext === 'html' ? 'markup' : ext === 'css' ? 'css' : ext === 'json' ? 'json' : 'javascript';
+                        const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        const codeHTML = `<pre><code class="language-${lang}">${escapedText}</code></pre>`;
+                        
+                        viewer.innerHTML = codeHTML;
+                        Prism.highlightAll(); 
+
+                        // If HTML, enable the preview toggle button
+                        if (ext === 'html') {
+                            currentHtmlCode = codeHTML;
+                            // GitHub pages direct URL construction
+                            currentHtmlUrl = `https://${username}.github.io/${repo}/${fileData.path}`;
+                            previewBtn.style.display = 'block';
+                            previewBtn.textContent = 'Preview Live HTML';
+                        }
+                    }
                 } catch(e) {
                     viewer.innerHTML = '<p style="color:red;">Error loading file content.</p>';
                 }
             }
         }
 
-        // Make the clicked file turn slightly lighter gray in the sidebar
+        // Toggle between code view and rendered HTML view
+        function toggleHtmlPreview() {
+            const viewer = document.getElementById('viewer');
+            const previewBtn = document.getElementById('preview-btn');
+            
+            if (!isPreviewing) {
+                viewer.innerHTML = `<iframe src="${currentHtmlUrl}"></iframe>`;
+                previewBtn.textContent = 'View Source Code';
+                isPreviewing = true;
+            } else {
+                viewer.innerHTML = currentHtmlCode;
+                Prism.highlightAll();
+                previewBtn.textContent = 'Preview Live HTML';
+                isPreviewing = false;
+            }
+        }
+
         function highlightActiveFile(clickedElement) {
             document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
             clickedElement.classList.add('active');
