@@ -95,7 +95,7 @@
         img { max-width: 100%; height: auto; border-radius: 5px; }
         iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 5px; }
         
-        /* Markdown formatting inside viewer */
+        /* Markdown formatting */
         .markdown-body { color: #cccccc; line-height: 1.6; }
         .markdown-body h1, .markdown-body h2 { border-bottom: 1px solid #333; padding-bottom: 5px; }
         .markdown-body a { color: #4fc1ff; }
@@ -118,12 +118,11 @@
                 <button id="preview-btn" class="action-btn" onclick="toggleHtmlPreview()">Preview Live HTML</button>
             </div>
             <div id="viewer">
-                <p style="color: #666;">Select a file or your "javascript work" folder from the sidebar to view your code.</p>
+                <p style="color: #666;">Select a file from the sidebar to view your code.</p>
             </div>
         </div>
     </div>
 
-    <!-- Scripts for Syntax Highlighting and Markdown Parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -161,7 +160,8 @@
                 });
 
                 data.forEach(item => {
-                    if (item.name === 'index.html' || item.name.startsWith('.')) return;
+                    // FIX: We now check item.path instead of item.name so it only hides the root index.html
+                    if (item.path === 'index.html' || item.name.startsWith('.')) return;
 
                     const li = document.createElement('li');
                     const div = document.createElement('div');
@@ -191,7 +191,6 @@
             const nestedList = element.nextElementSibling;
             const iconSpan = element.querySelector('.icon');
 
-            // This acts as your "Go Back" / Collapse feature
             if (nestedList && nestedList.tagName === 'UL') {
                 const isHidden = nestedList.style.display === 'none';
                 nestedList.style.display = isHidden ? 'block' : 'none';
@@ -235,12 +234,10 @@
                     const response = await fetch(downloadUrl);
                     const text = await response.text();
                     
-                    // Render Markdown Files (like README.md) visually
                     if (ext === 'md') {
                         viewer.innerHTML = `<div class="markdown-body">${marked.parse(text)}</div>`;
                     } 
                     else {
-                        // Display Code
                         let lang = ext === 'html' ? 'markup' : ext === 'css' ? 'css' : ext === 'json' ? 'json' : 'javascript';
                         const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                         const codeHTML = `<pre><code class="language-${lang}">${escapedText}</code></pre>`;
@@ -248,10 +245,8 @@
                         viewer.innerHTML = codeHTML;
                         Prism.highlightAll(); 
 
-                        // If HTML, enable the preview toggle button
                         if (ext === 'html') {
                             currentHtmlCode = codeHTML;
-                            // GitHub pages direct URL construction
                             currentHtmlUrl = `https://${username}.github.io/${repo}/${fileData.path}`;
                             previewBtn.style.display = 'block';
                             previewBtn.textContent = 'Preview Live HTML';
@@ -263,7 +258,6 @@
             }
         }
 
-        // Toggle between code view and rendered HTML view
         function toggleHtmlPreview() {
             const viewer = document.getElementById('viewer');
             const previewBtn = document.getElementById('preview-btn');
