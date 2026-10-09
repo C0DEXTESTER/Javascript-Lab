@@ -4,87 +4,163 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JavaScript Lab Assignments</title>
+    <!-- VS Code-like Dark Theme for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            line-height: 1.6;
-            background-color: #f4f4f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1e1e1e; /* VS Code dark background */
+            color: #d4d4d4; /* VS Code light text */
         }
-        h1 {
-            color: #333;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 10px;
+        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
+        #breadcrumb { margin-bottom: 20px; font-size: 1.1em; color: #4fc1ff; }
+        .item-list { list-style: none; padding: 0; }
+        .item-list li {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
         }
-        .assignment-list {
-            list-style-type: none;
-            padding: 0;
-        }
-        .assignment-list li {
-            background: #fff;
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .assignment-list a {
-            text-decoration: none;
-            color: #0366d6;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-        .assignment-list a:hover {
-            text-decoration: underline;
-        }
+        .item-list li:hover { background-color: #2a2d2e; cursor: pointer; }
+        .item-list a { color: #4fc1ff; text-decoration: none; cursor: pointer; display: flex; width: 100%; align-items: center; }
+        .icon { margin-right: 10px; font-size: 1.2em; }
+        #viewer { display: none; background: #1e1e1e; border: 1px solid #333; border-radius: 5px; padding: 15px; overflow-x: auto; }
+        img { max-width: 100%; height: auto; border-radius: 5px; }
+        .back-btn { background: #007acc; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 3px; margin-bottom: 15px; font-size: 1em; }
+        .back-btn:hover { background: #005999; }
+        pre { margin: 0 !important; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>JavaScript Lab Assignments</h1>
-    <p>Welcome to my JavaScript lab portfolio. Below are all the assignments pushed to this repository.</p>
+    <h1>JavaScript Lab Portfolio</h1>
+    <button id="back-btn" class="back-btn" style="display:none;" onclick="goBack()">🔙 Go Back</button>
+    <div id="breadcrumb">/</div>
 
-    <ul id="repo-files" class="assignment-list">
+    <!-- Directory List -->
+    <ul id="repo-list" class="item-list">
         <li>Loading assignments...</li>
     </ul>
 
+    <!-- Code & Image Viewer -->
+    <div id="viewer"></div>
+
+    <!-- Syntax Highlighting Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
     <script>
-        // REPLACE THESE VARIABLES WITH YOUR GITHUB DETAILS
+        // REPLACE THESE WITH YOUR EXACT GITHUB DETAILS
         const username = 'C0DEXTESTER';
         const repo = 'Javascript-Lab';
         
-        const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents`;
+        const repoList = document.getElementById('repo-list');
+        const viewer = document.getElementById('viewer');
+        const breadcrumb = document.getElementById('breadcrumb');
+        const backBtn = document.getElementById('back-btn');
 
-        fetch(apiUrl)
-            .then(response => {
-                if (!response.ok) throw new Error("Network response was not ok");
-                return response.json();
-            })
-            .then(data => {
-                const list = document.getElementById('repo-files');
-                list.innerHTML = ''; // Clear loading text
+        let currentPath = '';
+
+        async function loadPath(path = '') {
+            currentPath = path;
+            repoList.innerHTML = '<li>Loading...</li>';
+            repoList.style.display = 'block';
+            viewer.style.display = 'none';
+            backBtn.style.display = path ? 'block' : 'none';
+            breadcrumb.textContent = '/' + path;
+
+            const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("Network error");
+                const data = await response.json();
+
+                repoList.innerHTML = ''; 
+
+                // If clicking a file directly from URL
+                if (!Array.isArray(data)) {
+                    viewFile(data);
+                    return;
+                }
+
+                // Sort: Folders first, then files alphabetically
+                data.sort((a, b) => {
+                    if (a.type === b.type) return a.name.localeCompare(b.name);
+                    return a.type === 'dir' ? -1 : 1;
+                });
 
                 data.forEach(item => {
-                    // Filter out the index.html itself or hidden files
-                    if (item.name !== 'index.html' && !item.name.startsWith('.')) {
-                        const listItem = document.createElement('li');
-                        const link = document.createElement('a');
-                        
-                        // Link to the GitHub Pages URL for the file/folder
-                        link.href = item.name; 
-                        link.textContent = item.name + (item.type === 'dir' ? ' (Folder)' : '');
-                        link.target = '_blank';
-                        
-                        listItem.appendChild(link);
-                        list.appendChild(listItem);
-                    }
+                    if (item.name === 'index.html' || item.name.startsWith('.')) return;
+
+                    const li = document.createElement('li');
+                    const link = document.createElement('a');
+                    
+                    const isDir = item.type === 'dir';
+                    const icon = isDir ? '📁' : '📄';
+                    
+                    link.innerHTML = `<span class="icon">${icon}</span>${item.name}`;
+                    link.onclick = () => loadPath(item.path);
+                    
+                    li.appendChild(link);
+                    repoList.appendChild(li);
                 });
-            })
-            .catch(error => {
-                document.getElementById('repo-files').innerHTML = '<li>Error loading assignments. Check username and repo name in the code.</li>';
-                console.error('Error fetching repo data:', error);
-            });
+            } catch (error) {
+                repoList.innerHTML = `<li>Error loading path. Check username and repo name in the code.</li>`;
+                console.error(error);
+            }
+        }
+
+        async function viewFile(fileData) {
+            repoList.style.display = 'none';
+            viewer.style.display = 'block';
+            viewer.innerHTML = 'Loading file...';
+
+            const ext = fileData.name.split('.').pop().toLowerCase();
+            const downloadUrl = fileData.download_url;
+
+            // Handle Images
+            if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
+                viewer.innerHTML = `<img src="${downloadUrl}" alt="${fileData.name}">`;
+            } 
+            // Handle PDFs
+            else if (ext === 'pdf') {
+                viewer.innerHTML = `<p>PDF files cannot be previewed in the code editor.</p>
+                                    <a href="${fileData.html_url}" target="_blank" style="color:#4fc1ff;">View or Download PDF on GitHub</a>`;
+            } 
+            // Handle Code & Text (JS, HTML, CSS, TXT)
+            else {
+                try {
+                    const response = await fetch(downloadUrl);
+                    const text = await response.text();
+                    
+                    // Map file extensions to PrismJS language classes
+                    let lang = ext === 'html' ? 'markup' : ext === 'css' ? 'css' : ext === 'json' ? 'json' : 'javascript';
+                    
+                    // Escape HTML so tags don't break the pre-block
+                    const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    
+                    viewer.innerHTML = `<pre><code class="language-${lang}">${escapedText}</code></pre>`;
+                    Prism.highlightAll(); // Activates the VS Code-style colors
+                } catch(e) {
+                    viewer.innerHTML = 'Error loading file content.';
+                }
+            }
+        }
+
+        function goBack() {
+            // Traverse up one directory level
+            const parts = currentPath.split('/');
+            parts.pop();
+            const newPath = parts.join('/');
+            loadPath(newPath);
+        }
+
+        // Initialize by loading the root folder
+        loadPath('');
     </script>
 </body>
 </html>
