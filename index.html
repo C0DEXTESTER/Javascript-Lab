@@ -4,49 +4,129 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JavaScript Lab Assignments</title>
-    <!-- VS Code-like Dark Theme for syntax highlighting -->
+    <!-- PrismJS Dark Theme for syntax highlighting -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <style>
-        body {
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
             background-color: #1e1e1e; /* VS Code dark background */
-            color: #d4d4d4; /* VS Code light text */
+            color: #cccccc;
+            overflow: hidden; /* Prevent full page scrolling */
         }
-        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
-        #breadcrumb { margin-bottom: 20px; font-size: 1.1em; color: #4fc1ff; }
-        .item-list { list-style: none; padding: 0; }
-        .item-list li {
-            padding: 10px;
-            border-bottom: 1px solid #333;
+        
+        /* Two-pane layout container */
+        #app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Styling (File Explorer) */
+        #sidebar {
+            width: 280px;
+            background-color: #252526; /* VS Code sidebar color */
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            padding-top: 10px;
+        }
+        
+        .sidebar-title {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            padding: 10px 15px;
+            color: #999;
+            letter-spacing: 1px;
+        }
+
+        /* Tree List Styling */
+        ul.tree-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        ul.tree-list ul {
+            padding-left: 20px; /* Indent subfolders */
+        }
+        
+        .tree-item {
+            padding: 6px 15px;
+            cursor: pointer;
             display: flex;
             align-items: center;
+            font-size: 0.95em;
+            user-select: none;
+            color: #cccccc;
         }
-        .item-list li:hover { background-color: #2a2d2e; cursor: pointer; }
-        .item-list a { color: #4fc1ff; text-decoration: none; cursor: pointer; display: flex; width: 100%; align-items: center; }
-        .icon { margin-right: 10px; font-size: 1.2em; }
-        #viewer { display: none; background: #1e1e1e; border: 1px solid #333; border-radius: 5px; padding: 15px; overflow-x: auto; }
-        img { max-width: 100%; height: auto; border-radius: 5px; }
-        .back-btn { background: #007acc; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 3px; margin-bottom: 15px; font-size: 1em; }
-        .back-btn:hover { background: #005999; }
-        pre { margin: 0 !important; border-radius: 5px; }
+        .tree-item:hover {
+            background-color: #2a2d2e;
+        }
+        .tree-item.active {
+            background-color: #37373d;
+            color: #ffffff;
+        }
+        .icon {
+            margin-right: 8px;
+            font-size: 1.1em;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Main Editor Area */
+        #editor-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #1e1e1e;
+        }
+
+        /* Top Bar of the Editor */
+        #editor-tabs {
+            background-color: #2d2d2d;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            color: #999;
+            border-bottom: 1px solid #1e1e1e;
+            min-height: 20px;
+        }
+
+        /* Code Viewer Area */
+        #viewer {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0 !important;
+            border-radius: 5px;
+            background: transparent !important;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <h1>JavaScript Lab Portfolio</h1>
-    <button id="back-btn" class="back-btn" style="display:none;" onclick="goBack()">🔙 Go Back</button>
-    <div id="breadcrumb">/</div>
+    <div id="app-container">
+        <!-- Sidebar (Left) -->
+        <div id="sidebar">
+            <div class="sidebar-title">Explorer: JS Assignments</div>
+            <div id="file-tree">Loading repository...</div>
+        </div>
 
-    <!-- Directory List -->
-    <ul id="repo-list" class="item-list">
-        <li>Loading assignments...</li>
-    </ul>
-
-    <!-- Code & Image Viewer -->
-    <div id="viewer"></div>
+        <!-- Editor (Right) -->
+        <div id="editor-container">
+            <div id="editor-tabs">Welcome</div>
+            <div id="viewer">
+                <p style="color: #666;">Select a file from the sidebar to view your code.</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Syntax Highlighting Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -56,111 +136,134 @@
         // REPLACE THESE WITH YOUR EXACT GITHUB DETAILS
         const username = 'C0DEXTESTER';
         const repo = 'Javascript-Lab';
-        
-        const repoList = document.getElementById('repo-list');
-        const viewer = document.getElementById('viewer');
-        const breadcrumb = document.getElementById('breadcrumb');
-        const backBtn = document.getElementById('back-btn');
 
-        let currentPath = '';
+        // Load the root directory when the page opens
+        loadRoot();
 
-        async function loadPath(path = '') {
-            currentPath = path;
-            repoList.innerHTML = '<li>Loading...</li>';
-            repoList.style.display = 'block';
-            viewer.style.display = 'none';
-            backBtn.style.display = path ? 'block' : 'none';
-            breadcrumb.textContent = '/' + path;
+        async function loadRoot() {
+            const treeContainer = document.getElementById('file-tree');
+            treeContainer.innerHTML = '';
+            
+            const rootUl = document.createElement('ul');
+            rootUl.className = 'tree-list';
+            treeContainer.appendChild(rootUl);
 
+            await fetchAndBuildTree('', rootUl);
+        }
+
+        // Fetch directory contents and build the collapsible list
+        async function fetchAndBuildTree(path, parentElement) {
             const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
-
+            
             try {
                 const response = await fetch(apiUrl);
-                if (!response.ok) throw new Error("Network error");
+                if (!response.ok) throw new Error("API Error");
                 const data = await response.json();
 
-                repoList.innerHTML = ''; 
-
-                // If clicking a file directly from URL
-                if (!Array.isArray(data)) {
-                    viewFile(data);
-                    return;
-                }
-
-                // Sort: Folders first, then files alphabetically
+                // Sort: Folders first, files second
                 data.sort((a, b) => {
                     if (a.type === b.type) return a.name.localeCompare(b.name);
                     return a.type === 'dir' ? -1 : 1;
                 });
 
                 data.forEach(item => {
+                    // Ignore index.html and hidden files like .git
                     if (item.name === 'index.html' || item.name.startsWith('.')) return;
 
                     const li = document.createElement('li');
-                    const link = document.createElement('a');
+                    const div = document.createElement('div');
+                    div.className = 'tree-item';
                     
                     const isDir = item.type === 'dir';
-                    const icon = isDir ? '📁' : '📄';
+                    div.innerHTML = `<span class="icon">${isDir ? '📁' : '📄'}</span> ${item.name}`;
                     
-                    link.innerHTML = `<span class="icon">${icon}</span>${item.name}`;
-                    link.onclick = () => loadPath(item.path);
+                    if (isDir) {
+                        div.onclick = () => toggleFolder(div, item.path);
+                    } else {
+                        div.onclick = () => {
+                            highlightActiveFile(div);
+                            viewFile(item);
+                        };
+                    }
                     
-                    li.appendChild(link);
-                    repoList.appendChild(li);
+                    li.appendChild(div);
+                    parentElement.appendChild(li);
                 });
             } catch (error) {
-                repoList.innerHTML = `<li>Error loading path. Check username and repo name in the code.</li>`;
+                parentElement.innerHTML = '<li style="padding: 10px; color: red;">Error loading repository files. Check username/repo in the code.</li>';
                 console.error(error);
             }
         }
 
+        // Handle expanding and collapsing folders in the sidebar
+        async function toggleFolder(element, path) {
+            const nestedList = element.nextElementSibling;
+            const iconSpan = element.querySelector('.icon');
+
+            // If the folder was already clicked once, just hide/show it
+            if (nestedList && nestedList.tagName === 'UL') {
+                const isHidden = nestedList.style.display === 'none';
+                nestedList.style.display = isHidden ? 'block' : 'none';
+                iconSpan.textContent = isHidden ? '📂' : '📁';
+                return;
+            }
+
+            // If clicking for the first time, change icon to open and fetch contents
+            iconSpan.textContent = '📂';
+            const ul = document.createElement('ul');
+            ul.className = 'tree-list';
+            ul.innerHTML = '<li class="tree-item" style="color: #666;">Loading...</li>';
+            element.parentNode.insertBefore(ul, element.nextSibling);
+
+            ul.innerHTML = ''; // Clear loading text
+            await fetchAndBuildTree(path, ul);
+        }
+
+        // Display the selected file in the right-hand editor pane
         async function viewFile(fileData) {
-            repoList.style.display = 'none';
-            viewer.style.display = 'block';
-            viewer.innerHTML = 'Loading file...';
+            const viewer = document.getElementById('viewer');
+            const tabs = document.getElementById('editor-tabs');
+            
+            tabs.textContent = fileData.path; // Show file path at the top
+            viewer.innerHTML = '<p style="color:#999;">Loading file content...</p>';
 
             const ext = fileData.name.split('.').pop().toLowerCase();
             const downloadUrl = fileData.download_url;
 
-            // Handle Images
+            // Display Images
             if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
                 viewer.innerHTML = `<img src="${downloadUrl}" alt="${fileData.name}">`;
             } 
             // Handle PDFs
             else if (ext === 'pdf') {
-                viewer.innerHTML = `<p>PDF files cannot be previewed in the code editor.</p>
-                                    <a href="${fileData.html_url}" target="_blank" style="color:#4fc1ff;">View or Download PDF on GitHub</a>`;
+                viewer.innerHTML = `
+                    <p style="color:#d4d4d4; font-size: 1.1em;">PDF preview is not supported inside the code editor.</p>
+                    <a href="${fileData.html_url}" target="_blank" style="color:#4fc1ff; text-decoration: none; padding: 10px; border: 1px solid #4fc1ff; border-radius: 3px; display: inline-block; margin-top: 10px;">
+                        Open PDF in GitHub
+                    </a>`;
             } 
-            // Handle Code & Text (JS, HTML, CSS, TXT)
+            // Display Code (JS, HTML, CSS, JSON, etc.)
             else {
                 try {
                     const response = await fetch(downloadUrl);
                     const text = await response.text();
                     
-                    // Map file extensions to PrismJS language classes
                     let lang = ext === 'html' ? 'markup' : ext === 'css' ? 'css' : ext === 'json' ? 'json' : 'javascript';
-                    
-                    // Escape HTML so tags don't break the pre-block
                     const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     
                     viewer.innerHTML = `<pre><code class="language-${lang}">${escapedText}</code></pre>`;
-                    Prism.highlightAll(); // Activates the VS Code-style colors
+                    Prism.highlightAll(); // Trigger syntax coloring
                 } catch(e) {
-                    viewer.innerHTML = 'Error loading file content.';
+                    viewer.innerHTML = '<p style="color:red;">Error loading file content.</p>';
                 }
             }
         }
 
-        function goBack() {
-            // Traverse up one directory level
-            const parts = currentPath.split('/');
-            parts.pop();
-            const newPath = parts.join('/');
-            loadPath(newPath);
+        // Make the clicked file turn slightly lighter gray in the sidebar
+        function highlightActiveFile(clickedElement) {
+            document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+            clickedElement.classList.add('active');
         }
-
-        // Initialize by loading the root folder
-        loadPath('');
     </script>
 </body>
 </html>
